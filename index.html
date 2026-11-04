@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自己観察手帳 - Modern Lexicon -</title>
+  <!-- グラフ描画用ライブラリ -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts (明朝系フォント) -->
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #1a0f0a;
+      --book-cover: #2b1810;
+      --book-border: #8b6b3e;
+      --gold: #d4af37;
+      --gold-light: #f3e5ab;
+      --paper: #f7f1e3;
+      --paper-dark: #e8dcbf;
+      --text-main: #2c2523;
+      --text-muted: #6b5c56;
+      --accent-red: #7a2020;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Shippori Mincho', serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--gold-light);
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 10px;
+    }
+
+    /* スマホ枠風コンテナ */
+    .app-container {
+      width: 100%;
+      max-width: 480px;
+      background: var(--book-cover);
+      border: 3px solid var(--book-border);
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), inset 0 0 15px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ヘッダー (辞書の箔押し風) */
+    header {
+      padding: 16px;
+      text-align: center;
+      border-bottom: 2px solid var(--book-border);
+      background: linear-gradient(180deg, #3a2217 0%, #2b1810 100%);
+    }
+
+    header h1 {
+      font-size: 1.3rem;
+      color: var(--gold);
+      letter-spacing: 2px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    /* タブナビゲーション */
+    nav {
+      display: flex;
+      border-bottom: 1px solid var(--book-border);
+      background-color: #20120b;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px 4px;
+      background: none;
+      border: none;
+      color: #a6937c;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .tab-btn.active {
+      color: var(--gold);
+      background: var(--book-cover);
+      border-bottom: 2px solid var(--gold);
+    }
+
+    /* メイン表示領域（用紙風） */
+    main {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      background-color: var(--paper);
+      color: var(--text-main);
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* フォーム要素 */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--accent-red);
+      border-bottom: 1px dashed #c5b8a5;
+      padding-bottom: 2px;
+    }
+
+    input[type="date"],
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #c5b8a5;
+      border-radius: 4px;
+      background-color: #faf6ee;
+      color: var(--text-main);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--book-border);
+      box-shadow: 0 0 5px rgba(139, 107, 62, 0.4);
+    }
+
+    /* ボタン */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(180deg, #4a2e20 0%, #2b1810 100%);
+      color: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 4px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      transition: background 0.2s;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-secondary {
+      background: #8b6b3e;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      width: auto;
+    }
+
+    /* 口癖画面リスト */
+    .word-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--paper-dark);
+      margin-bottom: 6px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+
+    /* アコーディオン（非表示ワード用） */
+    .accordion-header {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent-red);
+      margin: 20px 0 8px 0;
+      border-left: 3px solid var(--accent-red);
+      padding-left: 6px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    .accordion-header::after {
+      content: '▶';
+      font-size: 0.75rem;
+      transition: transform 0.3s;
+    }
+
+    .accordion-header.open::after {
+      transform: rotate(90deg);
+    }
+
+    .accordion-content {
+      display: none;
+      background: #efe7d3;
+      padding: 12px;
+      border-radius: 4px;
+      border: 1px solid #d4c5ab;
+      margin-top: 6px;
+    }
+
+    .accordion-content.open {
+      display: block;
+    }
+
+    .ignore-tag {
+      display: inline-block;
+      background: #d4c3a3;
+      padding: 4px 8px;
+      margin: 2px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+    }
+
+    .ignore-tag span {
+      margin-left: 6px;
+      cursor: pointer;
+      color: var(--accent-red);
+      font-weight: bold;
+    }
+
+    /* 分析画面 */
+    .date-range {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .date-range input {
+      flex: 1;
+    }
+
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent-red);
+      margin: 16px 0 8px 0;
+      border-left: 3px solid var(--accent-red);
+      padding-left: 6px;
+    }
+
+    .analysis-list {
+      list-style-type: square;
+      padding-left: 20px;
+      font-size: 0.85rem;
+    }
+
+    .analysis-list li {
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+
+    .chart-container {
+      position: relative;
+      margin: 16px 0;
+      background: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #c5b8a5;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <header>
+    <h1>自己観察手帳</h1>
+  </header>
+
+  <nav>
+    <button class="tab-btn active" onclick="switchTab('diary')">記録</button>
+    <button class="tab-btn" onclick="switchTab('words')">口癖抽出</button>
+    <button class="tab-btn" onclick="switchTab('analysis')">分析</button>
+  </nav>
+
+  <main>
+    <!-- 日記ページ -->
+    <section id="diary" class="tab-content active">
+      <form id="diaryForm">
+        <div class="form-group">
+          <label for="diaryDate">日付</label>
+          <input type="date" id="diaryDate" required onchange="loadDiaryData()">
+        </div>
+
+        <div class="form-group">
+          <label for="evaluation">全体評価 (1: 悪い 〜 5: 良い)</label>
+          <select id="evaluation">
+            <option value="3">3 (普通)</option>
+            <option value="5">5 (良い)</option>
+            <option value="4">4 (やや良い)</option>
+            <option value="2">2 (やや悪い)</option>
+            <option value="1">1 (悪い)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="plan">予定・前提（前日からの引き継ぎ ＋ 追加可能）</label>
+          <textarea id="plan" placeholder="前日の明日の予定が自動入力されます。追記も可能です。"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="facts">事実記録</label>
+          <textarea id="facts" placeholder="客観的な事実のみを記載..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="thoughts">考察・思考</label>
+          <textarea id="thoughts" placeholder="考えたこと、分析..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="issues">課題</label>
+          <textarea id="issues" placeholder="明確になった課題..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="achievements">成果</label>
+          <textarea id="achievements" placeholder="達成したこと..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>良かったこと (3つ)</label>
+          <input type="text" id="good1" placeholder="1." style="margin-bottom: 4px;">
+          <input type="text" id="good2" placeholder="2." style="margin-bottom: 4px;">
+          <input type="text" id="good3" placeholder="3.">
+        </div>
+
+        <div class="form-group">
+          <label for="tomorrowPlan">明日の予定</label>
+          <textarea id="tomorrowPlan" placeholder="翌日に自動引き継ぎされる予定..."></textarea>
+        </div>
+
+        <button type="submit" class="btn">手帳に記録する</button>
+      </form>
+    </section>
+
+    <!-- 口癖・多用用語抽出画面 -->
+    <section id="words" class="tab-content">
+      <div class="form-group">
+        <label for="minCount">抽出する最小発生回数</label>
+        <input type="number" id="minCount" value="3" min="1" onchange="saveMinCountAndAnalyze()">
+      </div>
+
+      <div class="section-title">抽出された頻出語（多い順）</div>
+      <div id="wordList"></div>
+
+      <!-- 非表示ワード（アコーディオン形式） -->
+      <div class="accordion-header" id="ignoreAccordionHeader" onclick="toggleAccordion()">
+        非表示ワード（対象外）の設定
+      </div>
+      <div class="accordion-content" id="ignoreAccordionContent">
+        <div id="ignoreTags" style="margin-bottom: 12px;"></div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="newIgnoreWord" placeholder="除外する単語">
+          <button type="button" class="btn btn-secondary" onclick="addIgnoreWord()">追加</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 分析画面 -->
+    <section id="analysis" class="tab-content">
+      <div class="date-range">
+        <input type="date" id="startDate" onchange="runAnalysis()">
+        <span>〜</span>
+        <input type="date" id="endDate" onchange="runAnalysis()">
+      </div>
+
+      <div class="section-title">全体評価の推移</div>
+      <div class="chart-container">
+        <canvas id="mentalChart"></canvas>
+      </div>
+
+      <div class="section-title">期間内の成果一覧</div>
+      <ul id="analysisAchievements" class="analysis-list"></ul>
+
+      <div class="section-title">期間内の課題一覧</div>
+      <ul id="analysisIssues" class="analysis-list"></ul>
+    </section>
+  </main>
+</div>
+
+<script>
+  const STORAGE_KEY = 'self_observation_diary_db';
+  const IGNORE_KEY = 'self_observation_ignore_words';
+  const MIN_COUNT_KEY = 'self_observation_min_count';
+
+  let diaryData = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  let ignoreWords = JSON.parse(localStorage.getItem(IGNORE_KEY) || '["今日", "こと", "これ", "それ", "ため", "よう", "さん", "の", "です", "ます", "した"]');
+  let mentalChartInstance = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const today = getJapanDateString();
+    document.getElementById('diaryDate').value = today;
+    loadDiaryData();
+
+    const savedMinCount = localStorage.getItem(MIN_COUNT_KEY);
+    if (savedMinCount !== null) {
+      document.getElementById('minCount').value = savedMinCount;
+    }
+
+    const todayDate = new Date();
+    const weekAgo = new Date();
+    weekAgo.setDate(todayDate.getDate() - 6);
+    
+    document.getElementById('endDate').value = today;
+    document.getElementById('startDate').value = formatDate(weekAgo);
+  });
+
+  function getJapanDateString() {
+    const d = new Date();
+    const jst = new Date(d.getTime() + (9 * 60 + d.getTimezoneOffset()) * 60000);
+    return formatDate(jst);
+  }
+
+  function formatDate(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function getPrevDateString(dateStr) {
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() - 1);
+    return formatDate(d);
+  }
+
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    event.target.classList.add('active');
+    document.getElementById(tabId).classList.add('active');
+
+    if (tabId === 'words') analyzeWords();
+    if (tabId === 'analysis') runAnalysis();
+  }
+
+  function toggleAccordion() {
+    const header = document.getElementById('ignoreAccordionHeader');
+    const content = document.getElementById('ignoreAccordionContent');
+    header.classList.toggle('open');
+    content.classList.toggle('open');
+  }
+
+  document.getElementById('diaryForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const date = document.getElementById('diaryDate').value;
+    if (!date) return;
+
+    diaryData[date] = {
+      evaluation: document.getElementById('evaluation').value,
+      plan: document.getElementById('plan').value,
+      facts: document.getElementById('facts').value,
+      thoughts: document.getElementById('thoughts').value,
+      issues: document.getElementById('issues').value,
+      achievements: document.getElementById('achievements').value,
+      good1: document.getElementById('good1').value,
+      good2: document.getElementById('good2').value,
+      good3: document.getElementById('good3').value,
+      tomorrowPlan: document.getElementById('tomorrowPlan').value,
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(diaryData));
+    alert('手帳に記録しました。');
+  });
+
+  function loadDiaryData() {
+    const date = document.getElementById('diaryDate').value;
+    const data = diaryData[date];
+    const fields = ['evaluation', 'plan', 'facts', 'thoughts', 'issues', 'achievements', 'good1', 'good2', 'good3', 'tomorrowPlan'];
+    
+    if (data) {
+      fields.forEach(field => {
+        document.getElementById(field).value = data[field] || '';
+      });
+    } else {
+      // 登録データがない場合
+      fields.forEach(field => {
+        if (field === 'evaluation') {
+          document.getElementById(field).value = '3';
+        } else if (field === 'plan') {
+          // 前日の「明日の予定」を自動引き継ぎ
+          const prevDate = getPrevDateString(date);
+          const prevData = diaryData[prevDate];
+          document.getElementById(field).value = (prevData && prevData.tomorrowPlan) ? prevData.tomorrowPlan : '';
+        } else {
+          document.getElementById(field).value = '';
+        }
+      });
+    }
+  }
+
+  function saveMinCountAndAnalyze() {
+    const minCountVal = document.getElementById('minCount').value;
+    localStorage.setItem(MIN_COUNT_KEY, minCountVal);
+    analyzeWords();
+  }
+
+  function analyzeWords() {
+    const minCount = parseInt(document.getElementById('minCount').value) || 3;
+    let combinedText = '';
+
+    Object.values(diaryData).forEach(entry => {
+      combinedText += ` ${entry.plan} ${entry.facts} ${entry.thoughts} ${entry.issues} ${entry.achievements} ${entry.good1} ${entry.good2} ${entry.good3} ${entry.tomorrowPlan}`;
+    });
+
+    const words = combinedText.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{2,}/g) || [];
+    
+    const freqMap = {};
+    words.forEach(word => {
+      if (!ignoreWords.includes(word)) {
+        freqMap[word] = (freqMap[word] || 0) + 1;
+      }
+    });
+
+    const wordListEl = document.getElementById('wordList');
+    wordListEl.innerHTML = '';
+
+    const sortedWords = Object.entries(freqMap)
+      .filter(([_, count]) => count >= minCount)
+      .sort((a, b) => b[1] - a[1]);
+
+    if (sortedWords.length === 0) {
+      wordListEl.innerHTML = '<div style="font-size:0.85rem; color:#6b5c56;">該当する語句が見つかりません。</div>';
+    } else {
+      sortedWords.forEach(([word, count]) => {
+        const item = document.createElement('div');
+        item.className = 'word-item';
+        item.innerHTML = `
+          <span><strong>${word}</strong> (${count}回)</span>
+          <button class="btn-secondary" onclick="addIgnoreWordDirect('${word}')">非表示にする</button>
+        `;
+        wordListEl.appendChild(item);
+      });
+    }
+
+    renderIgnoreTags();
+  }
+
+  function renderIgnoreTags() {
+    const container = document.getElementById('ignoreTags');
+    container.innerHTML = '';
+    ignoreWords.forEach(word => {
+      const tag = document.createElement('span');
+      tag.className = 'ignore-tag';
+      tag.innerHTML = `${word} <span onclick="removeIgnoreWord('${word}')">&times;</span>`;
+      container.appendChild(tag);
+    });
+  }
+
+  function addIgnoreWordDirect(word) {
+    if (!ignoreWords.includes(word)) {
+      ignoreWords.push(word);
+      localStorage.setItem(IGNORE_KEY, JSON.stringify(ignoreWords));
+      analyzeWords();
+    }
+  }
+
+  function addIgnoreWord() {
+    const input = document.getElementById('newIgnoreWord');
+    const word = input.value.trim();
+    if (word) {
+      addIgnoreWordDirect(word);
+      input.value = '';
+    }
+  }
+
+  function removeIgnoreWord(word) {
+    ignoreWords = ignoreWords.filter(w => w !== word);
+    localStorage.setItem(IGNORE_KEY, JSON.stringify(ignoreWords));
+    analyzeWords();
+  }
+
+  function runAnalysis() {
+    const start = document.getElementById('startDate').value;
+    const end = document.getElementById('endDate').value;
+    if (!start || !end) return;
+
+    const dates = [];
+    let curr = new Date(start);
+    const last = new Date(end);
+
+    while (curr <= last) {
+      dates.push(formatDate(curr));
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    const evaluationScores = [];
+    const achievementsList = [];
+    const issuesList = [];
+
+    dates.forEach(d => {
+      if (diaryData[d]) {
+        evaluationScores.push(parseInt(diaryData[d].evaluation));
+        if (diaryData[d].achievements) achievementsList.push({ date: d, text: diaryData[d].achievements });
+        if (diaryData[d].issues) issuesList.push({ date: d, text: diaryData[d].issues });
+      } else {
+        evaluationScores.push(null);
+      }
+    });
+
+    renderChart(dates, evaluationScores);
+
+    const achEl = document.getElementById('analysisAchievements');
+    achEl.innerHTML = achievementsList.length 
+      ? achievementsList.map(item => `<li><strong>${item.date}:</strong> ${escapeHtml(item.text)}</li>`).join('')
+      : '<li>データなし</li>';
+
+    const issEl = document.getElementById('analysisIssues');
+    issEl.innerHTML = issuesList.length 
+      ? issuesList.map(item => `<li><strong>${item.date}:</strong> ${escapeHtml(item.text)}</li>`).join('')
+      : '<li>データなし</li>';
+  }
+
+  function renderChart(labels, dataPoints) {
+    const ctx = document.getElementById('mentalChart').getContext('2d');
+    
+    if (mentalChartInstance) {
+      mentalChartInstance.destroy();
+    }
+
+    mentalChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels.map(l => l.slice(5)),
+        datasets: [{
+          label: '全体評価',
+          data: dataPoints,
+          borderColor: '#7a2020',
+          backgroundColor: 'rgba(122, 32, 32, 0.1)',
+          borderWidth: 2,
+          spanGaps: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            min: 1,
+            max: 5,
+            ticks: { stepSize: 1 }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, function(m) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+  }
+</script>
+
+</body>
+</html>
